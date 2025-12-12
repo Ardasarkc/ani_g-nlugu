@@ -1529,6 +1529,17 @@ body {
     .modal {
         padding: var(--spacing-md);
         width: 95%;
+        max-height: 85vh;
+        /* Limit height -> 85% of screen */
+        overflow-y: auto;
+        /* Enable scrolling for content inside */
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Important: Ensure modal content is scrollable but header stays or scrolls naturally */
+    .modal-content {
+        overflow-y: auto;
     }
 
     .modal-header h3 {
