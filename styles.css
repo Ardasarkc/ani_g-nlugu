@@ -953,6 +953,13 @@ body {
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
 }
 
+.memory-detail-content {
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    padding-right: 5px;
+}
+
 .detail-image img {
     width: 100%;
     height: auto;
