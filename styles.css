@@ -738,6 +738,18 @@ body {
     max-width: 450px;
     transform: scale(0.9);
     transition: transform 0.3s ease;
+    /* Desktop height constraint */
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.modal-content {
+    overflow-y: auto;
+    flex: 1;
+    padding-right: 5px;
+    /* Scrollbar space */
 }
 
 .modal-overlay.active .modal {
@@ -1526,20 +1538,32 @@ body {
     }
 
     /* Modal Mobile */
+    /* Modal Mobile */
     .modal {
         padding: var(--spacing-md);
         width: 95%;
         max-height: 85vh;
-        /* Limit height -> 85% of screen */
-        overflow-y: auto;
-        /* Enable scrolling for content inside */
         display: flex;
         flex-direction: column;
+        overflow: hidden;
+        /* Main container hidden, child will scroll */
+    }
+
+    .modal-header {
+        flex-shrink: 0;
+        /* Header stays fixed size */
+        margin-bottom: var(--spacing-sm);
     }
 
     /* Important: Ensure modal content is scrollable but header stays or scrolls naturally */
     .modal-content {
         overflow-y: auto;
+        flex: 1;
+        /* Take remaining space */
+        min-height: 0;
+        /* Firefox scroll fix */
+        padding-right: 5px;
+        /* Space for scrollbar */
     }
 
     .modal-header h3 {
