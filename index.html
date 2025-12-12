@@ -14,13 +14,12 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 
-<body>
+<body data-bg="purple-hearts">
     <!-- Login Screen -->
     <div class="login-screen" id="loginScreen">
         <div class="login-container">
             <div class="login-header">
-                <span class="login-heart">💖</span>
-                <h1>Arda & Asel</h1>
+                <h1>Arda <span class="ampersand">&</span> Asel</h1>
                 <p>Ortak Anı Günlüğümüz</p>
             </div>
             <div class="login-buttons">
@@ -61,8 +60,8 @@
 
         <!-- Header -->
         <header class="header">
+            <button class="settings-btn" onclick="openSettingsModal()" title="Ayarlar">⚙️</button>
             <div class="logo">
-                <span class="heart-icon">💖</span>
                 <h1>Arda <span class="ampersand">&</span> Asel</h1>
             </div>
             <p class="subtitle">Ortak Anı Günlüğümüz</p>
@@ -156,6 +155,29 @@
                         <textarea id="memoryContent" rows="4" placeholder="Bu özel anıyı yazın..." required></textarea>
                     </div>
                     <div class="form-group">
+                        <label>Fotoğraf Ekle</label>
+                        <div class="upload-controls">
+                            <input type="file" id="memoryPhoto" accept="image/*" style="display: none;">
+                            <button type="button" class="upload-btn"
+                                onclick="document.getElementById('memoryPhoto').click()">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                    <polyline points="21 15 16 10 5 21"></polyline>
+                                </svg>
+                                Fotoğraf Seç
+                            </button>
+                            <span class="file-name" id="fileName"></span>
+                        </div>
+                        <div id="imagePreviewContainer" style="display: none; margin-top: 10px; position: relative;">
+                            <img id="imagePreview" src="" alt="Önizleme"
+                                style="max-width: 100%; max-height: 200px; border-radius: 8px;">
+                            <button type="button" class="remove-image-btn" onclick="removeSelectedImage()"
+                                style="position: absolute; top: 5px; right: 5px; background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center;">×</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
                         <label for="memoryMood">Ruh Hali</label>
                         <div class="mood-selector">
                             <button type="button" class="mood-btn" data-mood="💕">💕</button>
@@ -219,24 +241,60 @@
                 </div>
                 <div class="modal-content">
                     <div class="settings-section">
-                        <h3>🎨 Tema Seçimi</h3>
-                        <div class="theme-grid">
-                            <button class="theme-btn active" id="theme-default" onclick="setTheme('default')">
-                                <div class="theme-preview default-preview"></div>
-                                <span>Romantik Pembe</span>
-                            </button>
-                            <button class="theme-btn" id="theme-light-blue" onclick="setTheme('light-blue')">
-                                <div class="theme-preview light-blue-preview"></div>
-                                <span>Gök Mavisi</span>
-                            </button>
-                            <button class="theme-btn" id="theme-dark-blue" onclick="setTheme('dark-blue')">
-                                <div class="theme-preview dark-blue-preview"></div>
-                                <span>Gece Mavisi</span>
-                            </button>
-                            <button class="theme-btn" id="theme-bw" onclick="setTheme('bw')">
-                                <div class="theme-preview bw-preview"></div>
-                                <span>Siyah & Beyaz</span>
-                            </button>
+                        <div class="settings-section">
+                            <h3>🎨 Menü Teması</h3>
+                            <div class="theme-grid">
+                                <button class="theme-btn active" id="theme-default" onclick="setMenuTheme('default')">
+                                    <div class="theme-preview default-preview"></div>
+                                    <span>Romantik Pembe</span>
+                                </button>
+                                <button class="theme-btn" id="theme-light-blue" onclick="setMenuTheme('light-blue')">
+                                    <div class="theme-preview light-blue-preview"></div>
+                                    <span>Gök Mavisi</span>
+                                </button>
+                                <button class="theme-btn" id="theme-dark-blue" onclick="setMenuTheme('dark-blue')">
+                                    <div class="theme-preview dark-blue-preview"></div>
+                                    <span>Gece Mavisi</span>
+                                </button>
+                                <button class="theme-btn" id="theme-white" onclick="setMenuTheme('white')">
+                                    <div class="theme-preview white-preview"
+                                        style="background: white; border: 1px solid #ddd;"></div>
+                                    <span>Beyaz</span>
+                                </button>
+                                <button class="theme-btn" id="theme-black" onclick="setMenuTheme('black')">
+                                    <div class="theme-preview black-preview" style="background: black;"></div>
+                                    <span>Siyah</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="settings-section">
+                            <h3>🌌 Arka Plan Seçimi</h3>
+                            <div class="theme-grid">
+                                <button class="theme-btn active" id="bg-purple-hearts"
+                                    onclick="setBackgroundTheme('purple-hearts')">
+                                    <div class="theme-preview"
+                                        style="background: linear-gradient(135deg, #1a0b2e 0%, #0f0518 100%);"></div>
+                                    <span>Mor Kalpler</span>
+                                </button>
+                                <button class="theme-btn" id="bg-pitch-black"
+                                    onclick="setBackgroundTheme('pitch-black')">
+                                    <div class="theme-preview" style="background: #000;"></div>
+                                    <span>Zifiri Siyah</span>
+                                </button>
+                                <button class="theme-btn" id="bg-starry-night"
+                                    onclick="setBackgroundTheme('starry-night')">
+                                    <div class="theme-preview"
+                                        style="background: linear-gradient(to bottom, #020024 0%, #090979 35%, #00d4ff 100%);">
+                                    </div>
+                                    <span>Yıldızlı Gece</span>
+                                </button>
+                                <button class="theme-btn" id="bg-sunset" onclick="setBackgroundTheme('sunset')">
+                                    <div class="theme-preview"
+                                        style="background: linear-gradient(to bottom, #ff512f 0%, #dd2476 100%);"></div>
+                                    <span>Gün Batımı</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -287,6 +345,7 @@
         // Firebase yapılandırması - AŞAĞIDAKİ DEĞERLERİ KENDİ FIREBASE PROJENİZLE DEĞİŞTİRİN
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
         // ⚠️ BU ALANI KENDİ FIREBASE BİLGİLERİNİZLE DEĞİŞTİRİN ⚠️
         const firebaseConfig = {
@@ -299,12 +358,13 @@
         };
 
         // Firebase'i başlat
-        let app, db;
+        let app, db, storage;
         let isFirebaseConnected = false;
 
         try {
             app = initializeApp(firebaseConfig);
             db = getFirestore(app);
+            storage = getStorage(app);
             isFirebaseConnected = true;
             console.log('🔥 Firebase bağlantısı başarılı!');
         } catch (error) {
@@ -313,8 +373,12 @@
 
         // Firebase fonksiyonlarını global yap
         window.firebaseDB = db;
+        window.firebaseStorage = storage;
         window.firebaseConnected = isFirebaseConnected;
-        window.firebaseModules = { collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy };
+        window.firebaseModules = {
+            collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy,
+            ref, uploadBytes, getDownloadURL
+        };
     </script>
     <script src="app.js?v=17"></script>
 </body>

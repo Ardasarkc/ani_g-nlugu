@@ -18,6 +18,7 @@ let selectedDate = null;
 let currentTab = 'arda';
 let selectedMood = '💕';
 let selectedAuthor = 'together';
+let selectedImageFile = null; // Store selected image file
 let allMemories = {}; // Tüm anıları tutacak
 let unsubscribe = null; // Firebase listener
 let counterInterval = null; // Canlı sayaç için interval
@@ -94,11 +95,56 @@ async function addMemoryToFirebase(memory) {
 
     try {
         const { collection, addDoc } = window.firebaseModules;
-        const docRef = await addDoc(collection(window.firebaseDB, 'memories'), memory);
+
+        // 5 Saniyelik Zaman Aşımı
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Firebase Request Timed Out')), 5000);
+        });
+
+        const addDocPromise = addDoc(collection(window.firebaseDB, 'memories'), memory);
+
+        const docRef = await Promise.race([addDocPromise, timeoutPromise]);
+
         console.log('✅ Anı Firebase\'e eklendi:', docRef.id);
         return docRef.id;
     } catch (error) {
         console.error('Firebase ekleme hatası:', error);
+        return null;
+    }
+}
+
+async function uploadImageToFirebase(file) {
+    if (!window.firebaseConnected || !window.firebaseStorage) {
+        return null;
+    }
+
+    try {
+        const { ref, uploadBytes, getDownloadURL } = window.firebaseModules;
+
+        // Create a unique filename
+        const filename = `memories/${getDateKey(selectedDate)}_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+        const storageRef = ref(window.firebaseStorage, filename);
+
+        console.log('📤 Fotoğraf yükleniyor:', filename);
+
+        // 15 Saniyelik Zaman Aşımı (Resimler büyük olabilir)
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Upload Request Timed Out')), 15000);
+        });
+
+        const uploadPromise = uploadBytes(storageRef, file);
+
+        // Upload with timeout
+        const snapshot = await Promise.race([uploadPromise, timeoutPromise]);
+
+        // Get URL
+        const downloadURL = await getDownloadURL(snapshot.ref);
+        console.log('✅ Fotoğraf URL alındı:', downloadURL);
+
+        return downloadURL;
+    } catch (error) {
+        console.error('Firebase fotoğraf yükleme hatası:', error);
+        // alert kaldırıldı - sessizce null döndür ve fallback (Base64) kullan
         return null;
     }
 }
@@ -137,7 +183,17 @@ function listenToFirebaseMemories() {
         const q = query(memoriesRef, orderBy('createdAt', 'desc'));
 
         unsubscribe = onSnapshot(q, (snapshot) => {
-            // Tüm anıları tarih bazında grupla
+            // 1. Mevcut 'local_' anıları yedekle (Firebase'den silinmesini önle)
+            const localMemories = [];
+            Object.values(allMemories).forEach(dayList => {
+                dayList.forEach(mem => {
+                    if (mem.id && mem.id.startsWith('local_')) {
+                        localMemories.push(mem);
+                    }
+                });
+            });
+
+            // 2. Tüm anıları sıfırla ve Firebase'den gelenleri işle
             allMemories = {};
 
             snapshot.forEach((doc) => {
@@ -148,6 +204,17 @@ function listenToFirebaseMemories() {
                     allMemories[dateKey] = [];
                 }
                 allMemories[dateKey].push(memory);
+            });
+
+            // 3. Yerel anıları geri ekle
+            localMemories.forEach(mem => {
+                if (!allMemories[mem.dateKey]) {
+                    allMemories[mem.dateKey] = [];
+                }
+                // Tekrar eklemeyi önlemek için kontrol et (gerçi sıfırladık ama olsun)
+                if (!allMemories[mem.dateKey].find(m => m.id === mem.id)) {
+                    allMemories[mem.dateKey].push(mem);
+                }
             });
 
             // Ayrıca localStorage'a da kaydet (çevrimdışı yedek)
@@ -296,7 +363,12 @@ function displayMemories() {
     // Store memories globally for click access
     window.currentFilteredMemories = filteredMemories;
 
-    memoriesList.innerHTML = filteredMemories.map((memory, index) => `
+    memoriesList.innerHTML = filteredMemories.map((memory, index) => {
+        const imageHtml = memory.imageUrl
+            ? `<div class="memory-image"><img src="${memory.imageUrl}" loading="lazy"></div>`
+            : '';
+
+        return `
         <div class="memory-card ${memory.author}" onclick="openDetailModal(window.currentFilteredMemories[${index}])">
             <button class="delete-memory-btn" onclick="event.stopPropagation(); deleteMemory('${memory.id}', '${dateKey}')">×</button>
             <div class="memory-header">
@@ -305,6 +377,7 @@ function displayMemories() {
                     <span>${memory.title}</span>
                 </div>
             </div>
+            ${imageHtml}
             <p class="memory-content">${memory.content}</p>
             <div class="memory-meta">
                 <div class="avatar ${memory.author}-avatar small">
@@ -313,11 +386,34 @@ function displayMemories() {
                 <span>${memory.author === 'arda' ? 'Arda' : memory.author === 'asel' ? 'Asel' : 'Birlikte'}</span>
             </div>
         </div>
-    `).join('');
+    `}).join('');
 }
 
 async function addMemory(title, content, mood, author) {
     const dateKey = getDateKey(selectedDate);
+
+    let imageUrl = null;
+
+    // Upload image if selected
+    if (selectedImageFile) {
+        // Try Firebase Upload
+        imageUrl = await uploadImageToFirebase(selectedImageFile);
+
+        // If offline or firebase fail, use Base64 (Local fallback)
+        if (!imageUrl) {
+            console.warn('⚠️ Firebase yüklemesi başarısız, Base64 kullanılıyor.');
+
+            // Convert to Base64 specifically for storage
+            const base64Image = document.getElementById('imagePreview').src;
+
+            // Check size (Approx limit for localStorage is 5MB total, so be careful with > 500KB)
+            if (base64Image.length > 1000000) { // ~750KB
+                alert('⚠️ Uyarı: Fotoğraf boyutu çok yüksek! Yerel hafıza dolabilir. İnternet bağlantınızı kontrol edin.');
+            }
+
+            imageUrl = base64Image;
+        }
+    }
 
     const memory = {
         dateKey,
@@ -325,6 +421,7 @@ async function addMemory(title, content, mood, author) {
         content,
         mood,
         author,
+        imageUrl,
         createdAt: new Date().toISOString()
     };
 
@@ -474,6 +571,8 @@ function openModal() {
 
     // Reset form
     memoryForm.reset();
+    removeSelectedImage(); // Clear image state
+
     document.querySelectorAll('.mood-btn').forEach(btn => {
         btn.classList.remove('selected');
         if (btn.dataset.mood === selectedMood) {
@@ -507,6 +606,24 @@ function openDetailModal(memory) {
     document.getElementById('detailTitle').textContent = memory.mood + ' ' + memory.title;
     document.getElementById('detailMood').textContent = memory.mood;
     document.getElementById('detailContent').textContent = memory.content;
+
+    // Image Detail
+    let detailImageContainer = document.getElementById('detailImageContainer');
+    if (!detailImageContainer) {
+        // Create if doesn't exist (it should be in HTML ideally)
+        detailImageContainer = document.createElement('div');
+        detailImageContainer.id = 'detailImageContainer';
+        detailImageContainer.className = 'detail-image';
+        document.querySelector('.memory-detail-content').insertBefore(detailImageContainer, document.querySelector('.detail-text'));
+    }
+
+    if (memory.imageUrl) {
+        detailImageContainer.innerHTML = `<img src="${memory.imageUrl}" alt="Anı Fotoğrafı">`;
+        detailImageContainer.style.display = 'block';
+    } else {
+        detailImageContainer.style.display = 'none';
+        detailImageContainer.innerHTML = '';
+    }
 
     // Author info
     const authorName = memory.author === 'arda' ? 'Arda' : (memory.author === 'asel' ? 'Asel' : 'Birlikte');
@@ -551,9 +668,13 @@ function closeSettingsModal() {
     document.getElementById('settingsModal').classList.remove('active');
 }
 
-function setTheme(themeName) {
-    // Save to localStorage
-    localStorage.setItem('selectedTheme', themeName);
+function setMenuTheme(themeName) {
+    // Save to localStorage - User specific if logged in
+    if (currentUser) {
+        localStorage.setItem(`menu_theme_${currentUser}`, themeName);
+    } else {
+        localStorage.setItem('selectedMenuTheme', themeName);
+    }
 
     // Remove all theme classes
     document.documentElement.removeAttribute('data-theme');
@@ -564,7 +685,7 @@ function setTheme(themeName) {
     }
 
     // Update active button state
-    document.querySelectorAll('.theme-btn').forEach(btn => {
+    document.querySelectorAll('.settings-section:first-child .theme-btn').forEach(btn => {
         btn.classList.remove('active');
     });
     const activeBtn = document.getElementById(`theme-${themeName}`);
@@ -573,18 +694,102 @@ function setTheme(themeName) {
     }
 }
 
+function setBackgroundTheme(bgName) {
+    // Save to localStorage - User specific if logged in
+    if (currentUser) {
+        localStorage.setItem(`bg_theme_${currentUser}`, bgName);
+    } else {
+        localStorage.setItem('selectedBgTheme', bgName);
+    }
+
+    // Apply new background
+    document.body.setAttribute('data-bg', bgName);
+
+    // Update active button state
+    document.querySelectorAll('.settings-section:last-child .theme-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    const activeBtn = document.getElementById(`bg-${bgName}`);
+    if (activeBtn) {
+        activeBtn.classList.add('active');
+    }
+}
+
 function loadTheme() {
-    const savedTheme = localStorage.getItem('selectedTheme') || 'default';
-    setTheme(savedTheme);
+    let savedMenuTheme = 'default';
+    let savedBgTheme = 'purple-hearts';
+
+    if (currentUser) {
+        // Load user specific themes
+        savedMenuTheme = localStorage.getItem(`menu_theme_${currentUser}`);
+        savedBgTheme = localStorage.getItem(`bg_theme_${currentUser}`);
+
+        // Backwards compatibility
+        if (!savedMenuTheme) {
+            const oldTheme = localStorage.getItem(`theme_${currentUser}`);
+            if (oldTheme) savedMenuTheme = oldTheme;
+        }
+
+        // Defaults
+        if (!savedMenuTheme) {
+            if (currentUser === 'arda') savedMenuTheme = 'dark-blue';
+            else if (currentUser === 'asel') savedMenuTheme = 'default';
+        }
+
+        if (!savedBgTheme) savedBgTheme = 'purple-hearts';
+
+    } else {
+        savedMenuTheme = localStorage.getItem('selectedMenuTheme') || 'default';
+        savedBgTheme = localStorage.getItem('selectedBgTheme') || 'purple-hearts';
+    }
+
+    setMenuTheme(savedMenuTheme);
+    setBackgroundTheme(savedBgTheme);
 }
 
 window.openSettingsModal = openSettingsModal;
 window.closeSettingsModal = closeSettingsModal;
-window.setTheme = setTheme;
+window.setMenuTheme = setMenuTheme;
+window.setBackgroundTheme = setBackgroundTheme;
+
 
 // ========================================
 // Event Listeners
 // ========================================
+
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+
+    if (file) {
+        if (!file.type.startsWith('image/')) {
+            alert('Lütfen sadece fotoğraf dosyası seçin!');
+            return;
+        }
+
+        selectedImageFile = file;
+
+        // Preview
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            document.getElementById('imagePreview').src = e.target.result;
+            document.getElementById('imagePreviewContainer').style.display = 'block';
+            document.getElementById('fileName').textContent = file.name;
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+function removeSelectedImage() {
+    selectedImageFile = null;
+    document.getElementById('memoryPhoto').value = '';
+    document.getElementById('imagePreviewContainer').style.display = 'none';
+    document.getElementById('fileName').textContent = '';
+}
+
+// Make globally available
+window.handleFileSelect = handleFileSelect;
+window.removeSelectedImage = removeSelectedImage;
+document.getElementById('memoryPhoto').addEventListener('change', handleFileSelect);
 
 // Navigation
 prevMonthBtn.addEventListener('click', () => {
@@ -628,7 +833,7 @@ document.querySelectorAll('.author-btn').forEach(btn => {
 });
 
 // Save Memory Function (onclick handler)
-function saveMemory() {
+async function saveMemory() {
     console.log('💾 saveMemory çağrıldı!');
 
     const title = document.getElementById('memoryTitle').value.trim();
@@ -642,19 +847,37 @@ function saveMemory() {
         return;
     }
 
-    // Anıyı ekle
-    addMemory(title, content, selectedMood, selectedAuthor);
-    console.log('✅ addMemory çağrıldı!');
+    // Butonu deaktif et (Çift tıklamayı önle)
+    const submitBtn = document.querySelector('.submit-btn');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = '⏳ Kaydediliyor...';
+    }
 
-    // Hemen modal'ı kapat
-    closeModal();
-    console.log('✅ closeModal çağrıldı!');
+    try {
+        // Anıyı ekle
+        await addMemory(title, content, selectedMood, selectedAuthor);
+        console.log('✅ addMemory tamamlandı!');
 
-    // Toast göster
-    setTimeout(function () {
-        showSuccessToast();
-        console.log('✅ showSuccessToast çağrıldı!');
-    }, 100);
+        // Hemen modal'ı kapat
+        closeModal();
+        console.log('✅ closeModal çağrıldı!');
+
+        // Toast göster
+        setTimeout(function () {
+            showSuccessToast();
+            console.log('✅ showSuccessToast çağrıldı!');
+        }, 100);
+    } catch (error) {
+        console.error('❌ Anı kaydetme hatası:', error);
+        alert('Anı kaydedilirken bir hata oluştu: ' + error.message);
+    } finally {
+        // Butonu tekrar aktif et
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = '💖 Anıyı Kaydet';
+        }
+    }
 }
 
 // Make saveMemory available globally
@@ -729,6 +952,7 @@ function submitPassword() {
 
         // Uygulamayı başlat
         startApp();
+        loadTheme(); // Load user's theme preference
     } else {
         document.getElementById('errorMessage').textContent = 'Yanlış şifre! Tekrar deneyin.';
         document.getElementById('passwordInput').value = '';
@@ -841,4 +1065,3 @@ function init() {
 init();
 
 console.log('💖 Arda & Asel - Ortak Anı Günlüğü v2.0 yüklendi!');
-
