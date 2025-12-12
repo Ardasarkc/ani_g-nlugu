@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💖 Arda & Asel - Ortak Anı Günlüğü</title>
+    <meta name="description" content="Arda ve Asel'in ortak anı günlüğü ve ilişki takvimi">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Dancing+Script:wght@700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Floating Hearts Background -->
+        <div class="hearts-bg" id="heartsBg"></div>
+
+        <!-- Connection Status -->
+        <div class="connection-status" id="connectionStatus">
+            <span class="status-dot"></span>
+            <span class="status-text">Bağlanıyor...</span>
+        </div>
+
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <span class="heart-icon">💖</span>
+                <h1>Arda <span class="ampersand">&</span> Asel</h1>
+            </div>
+            <p class="subtitle">Ortak Anı Günlüğümüz</p>
+        </header>
+
+        <!-- Profile Tabs -->
+        <nav class="profile-tabs">
+            <button class="tab-btn active" data-tab="arda" id="tabArda">
+                <div class="avatar arda-avatar">A</div>
+                <span>Arda</span>
+            </button>
+            <button class="tab-btn" data-tab="asel" id="tabAsel">
+                <div class="avatar asel-avatar">A</div>
+                <span>Asel</span>
+            </button>
+            <button class="tab-btn" data-tab="together" id="tabTogether">
+                <div class="avatar together-avatar">💕</div>
+                <span>Birlikte</span>
+            </button>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Calendar Section -->
+            <section class="calendar-section">
+                <div class="calendar-header">
+                    <button class="nav-btn" id="prevMonth">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="15,18 9,12 15,6"></polyline>
+                        </svg>
+                    </button>
+                    <h2 class="month-year" id="monthYear">Aralık 2025</h2>
+                    <button class="nav-btn" id="nextMonth">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="9,6 15,12 9,18"></polyline>
+                        </svg>
+                    </button>
+                </div>
+                <div class="calendar-grid">
+                    <div class="weekdays">
+                        <span>Pzt</span>
+                        <span>Sal</span>
+                        <span>Çar</span>
+                        <span>Per</span>
+                        <span>Cum</span>
+                        <span>Cmt</span>
+                        <span>Paz</span>
+                    </div>
+                    <div class="days" id="calendarDays"></div>
+                </div>
+            </section>
+
+            <!-- Memory Panel -->
+            <section class="memory-panel" id="memoryPanel">
+                <div class="panel-header">
+                    <h3 id="selectedDate">Bir tarih seçin</h3>
+                    <button class="add-memory-btn" id="addMemoryBtn" style="display: none;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        Anı Ekle
+                    </button>
+                </div>
+                <div class="memories-list" id="memoriesList">
+                    <div class="empty-state">
+                        <div class="empty-icon">📅</div>
+                        <p>Takvimden bir tarih seçerek anılarınızı görüntüleyin</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Add Memory Modal -->
+        <div class="modal-overlay" id="modalOverlay">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3>✨ Yeni Anı Ekle</h3>
+                    <button class="close-btn" id="closeModal">&times;</button>
+                </div>
+                <form id="memoryForm">
+                    <div class="form-group">
+                        <label for="memoryTitle">Başlık</label>
+                        <input type="text" id="memoryTitle" placeholder="Anının başlığı..." required>
+                    </div>
+                    <div class="form-group">
+                        <label for="memoryContent">Anı</label>
+                        <textarea id="memoryContent" rows="4" placeholder="Bu özel anıyı yazın..." required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="memoryMood">Ruh Hali</label>
+                        <div class="mood-selector">
+                            <button type="button" class="mood-btn" data-mood="💕">💕</button>
+                            <button type="button" class="mood-btn" data-mood="🥰">🥰</button>
+                            <button type="button" class="mood-btn" data-mood="😊">😊</button>
+                            <button type="button" class="mood-btn" data-mood="🎉">🎉</button>
+                            <button type="button" class="mood-btn" data-mood="🌹">🌹</button>
+                            <button type="button" class="mood-btn" data-mood="✨">✨</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Kimden?</label>
+                        <div class="author-selector">
+                            <button type="button" class="author-btn" data-author="arda">
+                                <div class="avatar arda-avatar small">A</div>
+                                Arda
+                            </button>
+                            <button type="button" class="author-btn" data-author="asel">
+                                <div class="avatar asel-avatar small">A</div>
+                                Asel
+                            </button>
+                            <button type="button" class="author-btn" data-author="together">
+                                <div class="avatar together-avatar small">💕</div>
+                                Birlikte
+                            </button>
+                        </div>
+                    </div>
+                    <button type="submit" class="submit-btn">💖 Anıyı Kaydet</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Relationship Stats -->
+        <footer class="stats-footer">
+            <div class="stat-card" id="relationshipDays">
+                <span class="stat-number">0</span>
+                <span class="stat-label">Gün Birlikte</span>
+            </div>
+            <div class="stat-card" id="totalMemories">
+                <span class="stat-number">0</span>
+                <span class="stat-label">Toplam Anı</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Firebase yapılandırması - AŞAĞIDAKİ DEĞERLERİ KENDİ FIREBASE PROJENİZLE DEĞİŞTİRİN
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // ⚠️ BU ALANI KENDİ FIREBASE BİLGİLERİNİZLE DEĞİŞTİRİN ⚠️
+        const firebaseConfig = {
+            apiKey: "AIzaSyBgrdrNqBmFvT4n0jsuwUfZBQ15ZaMxo0",
+            authDomain: "arda-asel-ani-gunlugu.firebaseapp.com",
+            projectId: "arda-asel-ani-gunlugu",
+            storageBucket: "arda-asel-ani-gunlugu.firebasestorage.app",
+            messagingSenderId: "390367131016",
+            appId: "1:390367131016:web:a7911a973fd5c82e2d363d"
+        };
+
+        // Firebase'i başlat
+        let app, db;
+        let isFirebaseConnected = false;
+
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            isFirebaseConnected = true;
+            console.log('🔥 Firebase bağlantısı başarılı!');
+        } catch (error) {
+            console.warn('Firebase bağlanamadı, localStorage kullanılacak:', error);
+        }
+
+        // Firebase fonksiyonlarını global yap
+        window.firebaseDB = db;
+        window.firebaseConnected = isFirebaseConnected;
+        window.firebaseModules = { collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy };
+    </script>
+    <script src="app.js"></script>
+</body>
+
+</html>
