@@ -614,6 +614,8 @@ body {
     position: relative;
     overflow: hidden;
     max-width: 100%;
+    flex-shrink: 0;
+    /* Prevent shrinking in flex container */
 }
 
 @keyframes fadeIn {
@@ -1530,9 +1532,14 @@ body {
     }
 
     /* Memory Panel Mobile */
+    /* Memory Panel Mobile */
     .memory-panel {
         padding: var(--spacing-sm);
-        max-height: 400px;
+        height: 400px;
+        /* Fixed height to force scroll */
+        max-height: 50vh;
+        display: flex;
+        flex-direction: column;
     }
 
     .panel-header h3 {
