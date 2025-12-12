@@ -15,7 +15,41 @@
 </head>
 
 <body>
-    <div class="app-container">
+    <!-- Login Screen -->
+    <div class="login-screen" id="loginScreen">
+        <div class="login-container">
+            <div class="login-header">
+                <span class="login-heart">💖</span>
+                <h1>Arda & Asel</h1>
+                <p>Ortak Anı Günlüğümüz</p>
+            </div>
+            <div class="login-buttons">
+                <button class="login-btn arda-login" onclick="showPasswordInput('arda')">
+                    <div class="login-avatar arda-avatar"><img src="images/arda_avatar.png" alt="Arda"></div>
+                    <span>Arda</span>
+                </button>
+                <button class="login-btn asel-login" onclick="showPasswordInput('asel')">
+                    <div class="login-avatar asel-avatar"><img src="images/asel_avatar.png" alt="Asel"></div>
+                    <span>Asel</span>
+                </button>
+            </div>
+            <div class="password-input-section" id="passwordSection" style="display: none;">
+                <p id="loginUserLabel">Şifrenizi girin</p>
+                <input type="password" id="passwordInput" placeholder="Şifre..."
+                    onkeypress="handlePasswordKeypress(event)">
+                <button class="password-submit-btn" onclick="submitPassword()">Giriş Yap 💕</button>
+                <p class="error-message" id="errorMessage"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Toast - Outside container so always visible -->
+    <div class="toast-notification" id="successToast">
+        <span class="toast-icon">✅</span>
+        <span class="toast-message">Anı başarıyla kaydedildi! 💕</span>
+    </div>
+
+    <div class="app-container" id="appContainer" style="display: none;">
         <!-- Floating Hearts Background -->
         <div class="hearts-bg" id="heartsBg"></div>
 
@@ -37,11 +71,11 @@
         <!-- Profile Tabs -->
         <nav class="profile-tabs">
             <button class="tab-btn active" data-tab="arda" id="tabArda">
-                <div class="avatar arda-avatar">A</div>
+                <div class="avatar arda-avatar"><img src="images/arda_avatar.png" alt="Arda"></div>
                 <span>Arda</span>
             </button>
             <button class="tab-btn" data-tab="asel" id="tabAsel">
-                <div class="avatar asel-avatar">A</div>
+                <div class="avatar asel-avatar"><img src="images/asel_avatar.png" alt="Asel"></div>
                 <span>Asel</span>
             </button>
             <button class="tab-btn" data-tab="together" id="tabTogether">
@@ -136,11 +170,11 @@
                         <label>Kimden?</label>
                         <div class="author-selector">
                             <button type="button" class="author-btn" data-author="arda">
-                                <div class="avatar arda-avatar small">A</div>
+                                <div class="avatar arda-avatar small"><img src="images/arda_avatar.png" alt="A"></div>
                                 Arda
                             </button>
                             <button type="button" class="author-btn" data-author="asel">
-                                <div class="avatar asel-avatar small">A</div>
+                                <div class="avatar asel-avatar small"><img src="images/asel_avatar.png" alt="A"></div>
                                 Asel
                             </button>
                             <button type="button" class="author-btn" data-author="together">
@@ -149,22 +183,103 @@
                             </button>
                         </div>
                     </div>
-                    <button type="submit" class="submit-btn">💖 Anıyı Kaydet</button>
+                    <button type="button" class="submit-btn" onclick="saveMemory()">💖 Anıyı
+                        Kaydet</button>
                 </form>
+            </div>
+        </div>
+
+        <!-- Memory Detail Modal -->
+        <div class="modal-overlay" id="memoryDetailModal">
+            <div class="modal memory-detail-modal">
+                <div class="modal-header">
+                    <h2 id="detailTitle">💕 Anı Başlığı</h2>
+                    <button class="close-btn" onclick="closeDetailModal()">×</button>
+                </div>
+                <div class="memory-detail-content">
+                    <div class="detail-mood" id="detailMood">💕</div>
+                    <p class="detail-text" id="detailContent">Anı içeriği burada görünecek...</p>
+                    <div class="detail-meta">
+                        <span class="detail-author" id="detailAuthor">
+                            <div class="avatar arda-avatar small">A</div>
+                            Arda
+                        </span>
+                        <span class="detail-date" id="detailDate">12 Aralık 2025</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Modal -->
+        <div class="modal-overlay" id="settingsModal">
+            <div class="modal settings-modal">
+                <div class="modal-header">
+                    <h2>⚙️ Ayarlar</h2>
+                    <button class="close-btn" onclick="closeSettingsModal()">×</button>
+                </div>
+                <div class="modal-content">
+                    <div class="settings-section">
+                        <h3>🎨 Tema Seçimi</h3>
+                        <div class="theme-grid">
+                            <button class="theme-btn active" id="theme-default" onclick="setTheme('default')">
+                                <div class="theme-preview default-preview"></div>
+                                <span>Romantik Pembe</span>
+                            </button>
+                            <button class="theme-btn" id="theme-light-blue" onclick="setTheme('light-blue')">
+                                <div class="theme-preview light-blue-preview"></div>
+                                <span>Gök Mavisi</span>
+                            </button>
+                            <button class="theme-btn" id="theme-dark-blue" onclick="setTheme('dark-blue')">
+                                <div class="theme-preview dark-blue-preview"></div>
+                                <span>Gece Mavisi</span>
+                            </button>
+                            <button class="theme-btn" id="theme-bw" onclick="setTheme('bw')">
+                                <div class="theme-preview bw-preview"></div>
+                                <span>Siyah & Beyaz</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
         <!-- Relationship Stats -->
         <footer class="stats-footer">
-            <div class="stat-card" id="relationshipDays">
-                <span class="stat-number">0</span>
-                <span class="stat-label">Gün Birlikte</span>
+            <div class="live-counter" id="liveCounter">
+                <div class="counter-title">💕 Birlikte Geçen Süre</div>
+                <div class="counter-display">
+                    <div class="counter-item">
+                        <span class="counter-number" id="counterDays">0</span>
+                        <span class="counter-label">Gün</span>
+                    </div>
+                    <div class="counter-separator">:</div>
+                    <div class="counter-item">
+                        <span class="counter-number" id="counterHours">0</span>
+                        <span class="counter-label">Saat</span>
+                    </div>
+                    <div class="counter-separator">:</div>
+                    <div class="counter-item">
+                        <span class="counter-number" id="counterMinutes">0</span>
+                        <span class="counter-label">Dakika</span>
+                    </div>
+                    <div class="counter-separator">:</div>
+                    <div class="counter-item">
+                        <span class="counter-number" id="counterSeconds">0</span>
+                        <span class="counter-label">Saniye</span>
+                    </div>
+                </div>
+                <div class="counter-date">27 Eylül 2025'ten beri 💖</div>
             </div>
             <div class="stat-card" id="totalMemories">
                 <span class="stat-number">0</span>
                 <span class="stat-label">Toplam Anı</span>
             </div>
         </footer>
+
+        <!-- Logout Button -->
+        <button class="logout-btn" id="logoutBtn" onclick="logout()">
+            Çıkış Yap
+        </button>
     </div>
 
     <!-- Firebase SDK -->
@@ -201,7 +316,7 @@
         window.firebaseConnected = isFirebaseConnected;
         window.firebaseModules = { collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy };
     </script>
-    <script src="app.js"></script>
+    <script src="app.js?v=17"></script>
 </body>
 
 </html>

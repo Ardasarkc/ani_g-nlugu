@@ -1,7 +1,16 @@
 // ========================================
 // Ortak Anı Günlüğü - Arda & Asel 💖
 // Firebase + LocalStorage Hybrid
+// v2.0 - Login System & Live Counter
 // ========================================
+
+// Login System
+const PASSWORDS = {
+    arda: 'A123rda',
+    asel: 'A123sel'
+};
+let currentUser = null; // 'arda' veya 'asel'
+let selectedLoginUser = null;
 
 // State
 let currentDate = new Date();
@@ -11,9 +20,10 @@ let selectedMood = '💕';
 let selectedAuthor = 'together';
 let allMemories = {}; // Tüm anıları tutacak
 let unsubscribe = null; // Firebase listener
+let counterInterval = null; // Canlı sayaç için interval
 
-// İlişki başlangıç tarihi - kendi tarihinizi buraya yazabilirsiniz
-const RELATIONSHIP_START_DATE = new Date('2024-01-01');
+// İlişki başlangıç tarihi - 27 Eylül 2025
+const RELATIONSHIP_START_DATE = new Date('2025-09-27T00:00:00');
 
 // DOM Elements
 const calendarDays = document.getElementById('calendarDays');
@@ -254,10 +264,8 @@ function selectDate(date) {
 // ========================================
 
 function filterMemoriesByTab(memories) {
-    if (currentTab === 'together') {
-        return memories; // Show all memories in "together" tab
-    }
-    return memories.filter(m => m.author === currentTab || m.author === 'together');
+    // Tüm anıları göster - herkes birbirinin yazdığını görebilsin
+    return memories;
 }
 
 function displayMemories() {
@@ -285,9 +293,12 @@ function displayMemories() {
         return;
     }
 
-    memoriesList.innerHTML = filteredMemories.map((memory) => `
-        <div class="memory-card ${memory.author}">
-            <button class="delete-memory-btn" onclick="deleteMemory('${memory.id}', '${dateKey}')">&times;</button>
+    // Store memories globally for click access
+    window.currentFilteredMemories = filteredMemories;
+
+    memoriesList.innerHTML = filteredMemories.map((memory, index) => `
+        <div class="memory-card ${memory.author}" onclick="openDetailModal(window.currentFilteredMemories[${index}])">
+            <button class="delete-memory-btn" onclick="event.stopPropagation(); deleteMemory('${memory.id}', '${dateKey}')">×</button>
             <div class="memory-header">
                 <div class="memory-title">
                     <span class="memory-mood">${memory.mood}</span>
@@ -296,7 +307,9 @@ function displayMemories() {
             </div>
             <p class="memory-content">${memory.content}</p>
             <div class="memory-meta">
-                <div class="avatar ${memory.author}-avatar small">${memory.author === 'together' ? '💕' : memory.author.charAt(0).toUpperCase()}</div>
+                <div class="avatar ${memory.author}-avatar small">
+                    ${memory.author === 'together' ? '💕' : `<img src="images/${memory.author}_avatar.png" alt="${memory.author}">`}
+                </div>
                 <span>${memory.author === 'arda' ? 'Arda' : memory.author === 'asel' ? 'Asel' : 'Birlikte'}</span>
             </div>
         </div>
@@ -379,17 +392,39 @@ function switchTab(tab) {
 }
 
 // ========================================
-// Stats Functions
+// Stats & Live Counter Functions
 // ========================================
 
+function updateLiveCounter() {
+    const now = new Date();
+    const diff = now - RELATIONSHIP_START_DATE;
+
+    // Eğer tarih gelecekte ise
+    if (diff < 0) {
+        document.getElementById('counterDays').textContent = '0';
+        document.getElementById('counterHours').textContent = '0';
+        document.getElementById('counterMinutes').textContent = '0';
+        document.getElementById('counterSeconds').textContent = '0';
+        return;
+    }
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+    document.getElementById('counterDays').textContent = days;
+    document.getElementById('counterHours').textContent = String(hours).padStart(2, '0');
+    document.getElementById('counterMinutes').textContent = String(minutes).padStart(2, '0');
+    document.getElementById('counterSeconds').textContent = String(seconds).padStart(2, '0');
+}
+
+function startLiveCounter() {
+    updateLiveCounter();
+    counterInterval = setInterval(updateLiveCounter, 1000);
+}
+
 function updateStats() {
-    // Calculate days together
-    const today = new Date();
-    const diffTime = Math.abs(today - RELATIONSHIP_START_DATE);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    document.querySelector('#relationshipDays .stat-number').textContent = diffDays;
-
     // Calculate total memories
     let totalCount = 0;
     Object.values(allMemories).forEach(dayMemories => {
@@ -418,14 +453,14 @@ function createFloatingHeart() {
     }, 25000);
 }
 
-// Create initial hearts
+// Create initial hearts - reduced for minimal aesthetic
 function initFloatingHearts() {
-    for (let i = 0; i < 10; i++) {
-        setTimeout(createFloatingHeart, i * 1000);
+    for (let i = 0; i < 5; i++) {
+        setTimeout(createFloatingHeart, i * 2000);
     }
 
-    // Continue creating hearts
-    setInterval(createFloatingHeart, 3000);
+    // Continue creating hearts - less frequent
+    setInterval(createFloatingHeart, 8000);
 }
 
 // ========================================
@@ -435,7 +470,7 @@ function initFloatingHearts() {
 function openModal() {
     modalOverlay.classList.add('active');
     selectedMood = '💕';
-    selectedAuthor = currentTab === 'together' ? 'together' : currentTab;
+    selectedAuthor = currentUser; // Her zaman giriş yapan kullanıcı
 
     // Reset form
     memoryForm.reset();
@@ -445,10 +480,17 @@ function openModal() {
             btn.classList.add('selected');
         }
     });
+
+    // Yazar seçeneklerini kısıtla - sadece kendi adını göster
     document.querySelectorAll('.author-btn').forEach(btn => {
         btn.classList.remove('selected');
-        if (btn.dataset.author === selectedAuthor) {
+        const author = btn.dataset.author;
+
+        if (author === currentUser) {
+            btn.style.display = 'flex';
             btn.classList.add('selected');
+        } else {
+            btn.style.display = 'none';
         }
     });
 }
@@ -456,6 +498,89 @@ function openModal() {
 function closeModal() {
     modalOverlay.classList.remove('active');
 }
+
+// Memory Detail Modal Functions
+function openDetailModal(memory) {
+    const modal = document.getElementById('memoryDetailModal');
+
+    // Fill in the details
+    document.getElementById('detailTitle').textContent = memory.mood + ' ' + memory.title;
+    document.getElementById('detailMood').textContent = memory.mood;
+    document.getElementById('detailContent').textContent = memory.content;
+
+    // Author info
+    const authorName = memory.author === 'arda' ? 'Arda' : (memory.author === 'asel' ? 'Asel' : 'Birlikte');
+    const authorClass = memory.author === 'arda' ? 'arda-avatar' : (memory.author === 'asel' ? 'asel-avatar' : 'together-avatar');
+
+    const authorContent = memory.author === 'together'
+        ? '💕'
+        : `<img src="images/${memory.author}_avatar.png" alt="${memory.author}">`;
+
+    document.getElementById('detailAuthor').innerHTML = `
+        <div class="avatar ${authorClass} small">${authorContent}</div>
+        ${authorName}
+    `;
+
+    // Date
+    const date = new Date(memory.createdAt);
+    document.getElementById('detailDate').textContent = date.toLocaleDateString('tr-TR', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+
+    modal.classList.add('active');
+}
+
+function closeDetailModal() {
+    document.getElementById('memoryDetailModal').classList.remove('active');
+}
+
+// Make functions globally available
+window.openDetailModal = openDetailModal;
+window.closeDetailModal = closeDetailModal;
+
+// Settings Functions
+function openSettingsModal() {
+    document.getElementById('settingsModal').classList.add('active');
+}
+
+function closeSettingsModal() {
+    document.getElementById('settingsModal').classList.remove('active');
+}
+
+function setTheme(themeName) {
+    // Save to localStorage
+    localStorage.setItem('selectedTheme', themeName);
+
+    // Remove all theme classes
+    document.documentElement.removeAttribute('data-theme');
+
+    // Apply new theme
+    if (themeName !== 'default') {
+        document.documentElement.setAttribute('data-theme', themeName);
+    }
+
+    // Update active button state
+    document.querySelectorAll('.theme-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    const activeBtn = document.getElementById(`theme-${themeName}`);
+    if (activeBtn) {
+        activeBtn.classList.add('active');
+    }
+}
+
+function loadTheme() {
+    const savedTheme = localStorage.getItem('selectedTheme') || 'default';
+    setTheme(savedTheme);
+}
+
+window.openSettingsModal = openSettingsModal;
+window.closeSettingsModal = closeSettingsModal;
+window.setTheme = setTheme;
 
 // ========================================
 // Event Listeners
@@ -502,18 +627,63 @@ document.querySelectorAll('.author-btn').forEach(btn => {
     });
 });
 
-// Form submit
-memoryForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
+// Save Memory Function (onclick handler)
+function saveMemory() {
+    console.log('💾 saveMemory çağrıldı!');
 
     const title = document.getElementById('memoryTitle').value.trim();
     const content = document.getElementById('memoryContent').value.trim();
 
-    if (title && content) {
-        await addMemory(title, content, selectedMood, selectedAuthor);
-        closeModal();
+    console.log('📝 Title:', title);
+    console.log('📝 Content:', content);
+
+    if (!title || !content) {
+        alert('Lütfen başlık ve anı alanlarını doldurun!');
+        return;
     }
-});
+
+    // Anıyı ekle
+    addMemory(title, content, selectedMood, selectedAuthor);
+    console.log('✅ addMemory çağrıldı!');
+
+    // Hemen modal'ı kapat
+    closeModal();
+    console.log('✅ closeModal çağrıldı!');
+
+    // Toast göster
+    setTimeout(function () {
+        showSuccessToast();
+        console.log('✅ showSuccessToast çağrıldı!');
+    }, 100);
+}
+
+// Make saveMemory available globally
+window.saveMemory = saveMemory;
+
+// Success Toast
+function showSuccessToast() {
+    console.log('🎉 showSuccessToast çağrıldı!');
+    const toast = document.getElementById('successToast');
+
+    if (toast) {
+        // Direct style manipulation for guaranteed visibility
+        toast.style.transform = 'translateX(-50%) translateY(0)';
+        toast.style.opacity = '1';
+        toast.style.visibility = 'visible';
+        console.log('Toast gösteriliyor!');
+
+        // 3 saniye sonra gizle
+        setTimeout(() => {
+            toast.style.transform = 'translateX(-50%) translateY(-100px)';
+            toast.style.opacity = '0';
+            console.log('Toast gizlendi!');
+        }, 3000);
+    } else {
+        console.error('Toast element bulunamadı!');
+        // Fallback: alert göster
+        alert('✅ Anı başarıyla kaydedildi! 💕');
+    }
+}
 
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
@@ -523,23 +693,152 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ========================================
+// Login System
+// ========================================
+
+function showPasswordInput(user) {
+    selectedLoginUser = user;
+    document.getElementById('passwordSection').style.display = 'block';
+    document.getElementById('loginUserLabel').textContent =
+        `${user === 'arda' ? 'Arda' : 'Asel'} olarak giriş yap`;
+    document.getElementById('passwordInput').value = '';
+    document.getElementById('errorMessage').textContent = '';
+    document.getElementById('passwordInput').focus();
+}
+
+function handlePasswordKeypress(event) {
+    if (event.key === 'Enter') {
+        submitPassword();
+    }
+}
+
+function submitPassword() {
+    const password = document.getElementById('passwordInput').value;
+
+    if (password === PASSWORDS[selectedLoginUser]) {
+        // Başarılı giriş
+        currentUser = selectedLoginUser;
+        localStorage.setItem('currentUser', currentUser);
+
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('appContainer').style.display = 'block';
+
+        // Kullanıcıya göre tab ve author ayarla
+        currentTab = currentUser;
+        selectedAuthor = currentUser;
+
+        // Uygulamayı başlat
+        startApp();
+    } else {
+        document.getElementById('errorMessage').textContent = 'Yanlış şifre! Tekrar deneyin.';
+        document.getElementById('passwordInput').value = '';
+    }
+}
+
+function logout() {
+    currentUser = null;
+    localStorage.removeItem('currentUser');
+
+    if (counterInterval) {
+        clearInterval(counterInterval);
+    }
+
+    document.getElementById('appContainer').style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('passwordSection').style.display = 'none';
+    selectedLoginUser = null;
+}
+
+// Make logout available globally
+window.logout = logout;
+window.showPasswordInput = showPasswordInput;
+window.submitPassword = submitPassword;
+window.handlePasswordKeypress = handlePasswordKeypress;
+
+function restrictAuthorOptions() {
+    // Kullanıcıya göre yazar seçeneklerini kısıtla
+    // Arda girince → sadece Arda, Asel girince → sadece Asel
+    const authorBtns = document.querySelectorAll('.author-btn');
+
+    authorBtns.forEach(btn => {
+        const author = btn.dataset.author;
+
+        if (author === currentUser) {
+            // Sadece kendi adı görünsün
+            btn.style.display = 'flex';
+            btn.classList.add('selected'); // Otomatik seçili yap
+        } else {
+            // Diğer tüm seçenekler gizli (Birlikte dahil)
+            btn.style.display = 'none';
+        }
+    });
+
+    // Varsayılan yazar olarak kendini ayarla
+    selectedAuthor = currentUser;
+
+    // ÜST SEKMELERİ DE GİZLE
+    // Arda girince sadece Arda sekmesi, Asel girince sadece Asel sekmesi
+    const tabArda = document.getElementById('tabArda');
+    const tabAsel = document.getElementById('tabAsel');
+    const tabTogether = document.getElementById('tabTogether');
+
+    if (currentUser === 'arda') {
+        tabArda.style.display = 'flex';
+        tabAsel.style.display = 'none';
+        tabTogether.style.display = 'none';
+    } else if (currentUser === 'asel') {
+        tabArda.style.display = 'none';
+        tabAsel.style.display = 'flex';
+        tabTogether.style.display = 'none';
+    }
+}
+
+// ========================================
 // Initialize
 // ========================================
 
-function init() {
+function startApp() {
     updateConnectionStatus(false, 'Bağlanıyor...');
 
     // Firebase bağlantısını bekle
     setTimeout(() => {
         listenToFirebaseMemories();
         initFloatingHearts();
+        startLiveCounter();
+        restrictAuthorOptions();
+
+        // Kullanıcının sekmesini aktif et
+        switchTab(currentUser);
 
         // Select today by default
         selectDate(new Date());
     }, 500);
 }
 
+function init() {
+    // Tema yükle
+    loadTheme();
+
+    // Daha önce giriş yapılmış mı kontrol et
+    const savedUser = localStorage.getItem('currentUser');
+
+    if (savedUser && (savedUser === 'arda' || savedUser === 'asel')) {
+        currentUser = savedUser;
+        currentTab = savedUser;
+        selectedAuthor = savedUser;
+
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('appContainer').style.display = 'block';
+        startApp();
+    } else {
+        // Login ekranını göster
+        document.getElementById('loginScreen').style.display = 'flex';
+        document.getElementById('appContainer').style.display = 'none';
+    }
+}
+
 // Start the app
 init();
 
-console.log('💖 Arda & Asel - Ortak Anı Günlüğü yüklendi!');
+console.log('💖 Arda & Asel - Ortak Anı Günlüğü v2.0 yüklendi!');
+
